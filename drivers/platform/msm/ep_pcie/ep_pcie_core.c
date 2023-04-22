@@ -124,6 +124,40 @@ static const struct ep_pcie_irq_info_t ep_pcie_irq_info[EP_PCIE_MAX_IRQ] = {
 
 static int ep_pcie_core_wakeup_host_internal(enum ep_pcie_event event);
 
+/*
+ * ep_pcie_clk_dump - Clock CBCR reg info will be dumped in Dmesg logs.
+ * @dev: PCIe endpoint device structure.
+ */
+void ep_pcie_clk_dump(struct ep_pcie_dev_t *dev)
+{
+	struct ep_pcie_clk_info_t *info;
+	int i;
+
+	for (i = 0; i < EP_PCIE_MAX_CLK; i++) {
+		info = &dev->clk[i];
+
+		if (!info->hdl) {
+			EP_PCIE_DBG(dev,
+				"PCIe V%d:  handle of Clock %s is NULL\n",
+				dev->rev, info->name);
+		} else {
+			qcom_clk_dump(info->hdl, NULL, 0);
+		}
+	}
+
+	for (i = 0; i < EP_PCIE_MAX_PIPE_CLK; i++) {
+		info = &dev->pipeclk[i];
+
+		if (!info->hdl) {
+			EP_PCIE_ERR(dev,
+				"PCIe V%d:  handle of Pipe Clock %s is NULL\n",
+				dev->rev, info->name);
+		} else {
+			qcom_clk_dump(info->hdl, NULL, 0);
+		}
+	}
+}
+
 int ep_pcie_get_debug_mask(void)
 {
 	return ep_pcie_debug_mask;
@@ -1704,6 +1738,7 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 	u32 val = 0;
 	u32 retries = 0;
 	u32 bme = 0;
+	bool perst = true;
 	bool ltssm_en = false;
 	struct ep_pcie_dev_t *dev = &ep_pcie_dev;
 
@@ -1919,6 +1954,7 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 			dev->rev);
 		ret = EP_PCIE_ERROR;
 		ep_pcie_reg_dump(dev, BIT(EP_PCIE_RES_PHY), false);
+		ep_pcie_clk_dump(dev);
 		goto link_fail;
 	} else {
 		EP_PCIE_INFO(dev, "PCIe V%d: PCIe  PHY is ready\n", dev->rev);
@@ -1944,11 +1980,19 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 		if (retries % 100 == 0)
 			EP_PCIE_DBG(dev, "PCIe V%d: LTSSM_STATE:0x%x\n",
 					dev->rev, (val >> 0xC) & 0x3f);
+		perst = atomic_read(&dev->perst_deast) ? 1 : 0;
 	} while ((!(val & XMLH_LINK_UP) ||
 		!ep_pcie_confirm_linkup(dev, false))
-		&& (retries < LINK_UP_CHECK_MAX_COUNT));
+		&& (retries < LINK_UP_CHECK_MAX_COUNT) && perst);
 
-	if (retries == LINK_UP_CHECK_MAX_COUNT) {
+	if (!perst) {
+		dev->perst_ast_in_enum_counter++;
+		EP_PCIE_ERR(dev,
+				"PCIe V%d: Perst asserted No. %ld while waiting for link to be up\n",
+				dev->rev, dev->perst_ast_in_enum_counter);
+		ret = EP_PCIE_ERROR;
+		goto link_fail;
+	} else if (retries == LINK_UP_CHECK_MAX_COUNT) {
 		EP_PCIE_ERR(dev, "PCIe V%d: link initialization failed\n",
 			dev->rev);
 		ret = EP_PCIE_ERROR;

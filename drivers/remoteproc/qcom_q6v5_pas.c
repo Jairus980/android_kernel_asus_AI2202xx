@@ -305,7 +305,7 @@ static void disable_regulators(struct qcom_adsp *adsp)
 {
 	int i;
 
-	for (i = 0; i < adsp->reg_cnt; i++) {
+	for (i = (adsp->reg_cnt - 1); i >= 0; i--) {
 		regulator_set_voltage(adsp->regs[i].reg, 0, INT_MAX);
 		regulator_set_load(adsp->regs[i].reg, 0);
 		regulator_disable(adsp->regs[i].reg);
@@ -796,7 +796,6 @@ static int adsp_probe(struct platform_device *pdev)
 	timeout_disabled = qcom_pil_timeouts_disabled();
 	qcom_add_glink_subdev(rproc, &adsp->glink_subdev, desc->ssr_name);
 	qcom_add_smd_subdev(rproc, &adsp->smd_subdev);
-	qcom_add_ssr_subdev(rproc, &adsp->ssr_subdev, desc->ssr_name);
 	adsp->sysmon = qcom_add_sysmon_subdev(rproc,
 					      desc->sysmon_name,
 					      desc->ssctl_id);
@@ -806,6 +805,7 @@ static int adsp_probe(struct platform_device *pdev)
 	}
 
 	qcom_sysmon_register_ssr_subdev(adsp->sysmon, &adsp->ssr_subdev.subdev);
+	qcom_add_ssr_subdev(rproc, &adsp->ssr_subdev, desc->ssr_name);
 	ret = device_create_file(adsp->dev, &dev_attr_txn_id);
 	if (ret)
 		goto remove_subdevs;
@@ -1005,6 +1005,20 @@ static const struct adsp_data msm8998_adsp_resource = {
 		.ssr_name = "lpass",
 		.sysmon_name = "adsp",
 		.ssctl_id = 0x14,
+};
+
+static const struct adsp_data ravelin_adsp_resource = {
+	.crash_reason_smem = 423,
+	.firmware_name = "adsp.mdt",
+	.pas_id = 1,
+	.minidump_id = 5,
+	.uses_elf64 = true,
+	.has_aggre2_clk = false,
+	.auto_boot = false,
+	.ssr_name = "lpass",
+	.sysmon_name = "adsp",
+	.qmp_name = "adsp",
+	.ssctl_id = 0x14,
 };
 
 static const struct adsp_data cdsp_resource_init = {
@@ -1224,6 +1238,22 @@ static const struct adsp_data parrot_mpss_resource = {
 	.dma_phys_below_32b = true,
 };
 
+static const struct adsp_data ravelin_mpss_resource = {
+	.crash_reason_smem = 421,
+	.firmware_name = "modem.mdt",
+	.pas_id = 4,
+	.free_after_auth_reset = true,
+	.minidump_id = 3,
+	.uses_elf64 = true,
+	.has_aggre2_clk = false,
+	.auto_boot = false,
+	.ssr_name = "mpss",
+	.sysmon_name = "modem",
+	.qmp_name = "modem",
+	.ssctl_id = 0x12,
+	.dma_phys_below_32b = true,
+};
+
 static const struct adsp_data slpi_resource_init = {
 		.crash_reason_smem = 424,
 		.firmware_name = "slpi.mdt",
@@ -1336,6 +1366,18 @@ static const struct adsp_data parrot_wpss_resource = {
 	.ssctl_id = 0x19,
 };
 
+static const struct adsp_data ravelin_wpss_resource = {
+	.crash_reason_smem = 626,
+	.firmware_name = "wpss.mdt",
+	.pas_id = 6,
+	.minidump_id = 4,
+	.uses_elf64 = true,
+	.ssr_name = "wpss",
+	.sysmon_name = "wpss",
+	.qmp_name = "wpss",
+	.ssctl_id = 0x19,
+};
+
 static const struct adsp_data neo_wpss_resource = {
 	.crash_reason_smem = 626,
 	.firmware_name = "wpss.mdt",
@@ -1387,6 +1429,9 @@ static const struct of_device_id adsp_of_match[] = {
 	{ .compatible = "qcom,neo-wpss-pas", .data = &neo_wpss_resource},
 	{ .compatible = "qcom,anorak-adsp-pas", .data = &anorak_adsp_resource},
 	{ .compatible = "qcom,anorak-cdsp-pas", .data = &anorak_cdsp_resource},
+	{ .compatible = "qcom,ravelin-adsp-pas", .data = &ravelin_adsp_resource},
+	{ .compatible = "qcom,ravelin-modem-pas", .data = &ravelin_mpss_resource},
+	{ .compatible = "qcom,ravelin-wpss-pas", .data = &ravelin_wpss_resource},
 	{ },
 };
 MODULE_DEVICE_TABLE(of, adsp_of_match);

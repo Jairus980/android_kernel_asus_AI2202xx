@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _GEN7_REG_H
@@ -132,9 +132,17 @@
 #define GEN7_CP_BV_CHICKEN_DBG           0xada
 
 /* LPAC registers */
+#define GEN7_CP_LPAC_RB_RPTR             0xb06
+#define GEN7_CP_LPAC_RB_WPTR             0xb07
 #define GEN7_CP_LPAC_DRAW_STATE_ADDR     0xb0a
 #define GEN7_CP_LPAC_DRAW_STATE_DATA     0xb0b
 #define GEN7_CP_LPAC_ROQ_DBG_ADDR        0xb0c
+#define GEN7_CP_LPAC_IB1_BASE            0xb0d
+#define GEN7_CP_LPAC_IB1_BASE_HI         0xb0e
+#define GEN7_CP_LPAC_IB1_REM_SIZE        0xb0f
+#define GEN7_CP_LPAC_IB2_BASE            0xb10
+#define GEN7_CP_LPAC_IB2_BASE_HI         0xb11
+#define GEN7_CP_LPAC_IB2_REM_SIZE        0xb12
 #define GEN7_CP_SQE_AC_UCODE_DBG_ADDR    0xb27
 #define GEN7_CP_SQE_AC_UCODE_DBG_DATA    0xb28
 #define GEN7_CP_SQE_AC_STAT_ADDR         0xb29
@@ -144,6 +152,7 @@
 #define GEN7_CP_LPAC_ROQ_DBG_DATA        0xb35
 #define GEN7_CP_LPAC_FIFO_DBG_DATA       0xb36
 #define GEN7_CP_LPAC_FIFO_DBG_ADDR       0xb40
+#define GEN7_LPAC_RBBM_STATUS            0x5fe
 
 /* RBBM registers */
 #define GEN7_RBBM_INT_0_STATUS                   0x201
@@ -790,7 +799,10 @@
 #define GEN7_VFD_PERFCTR_VFD_SEL_13         0xa61d
 #define GEN7_VFD_PERFCTR_VFD_SEL_14         0xa61e
 #define GEN7_VFD_PERFCTR_VFD_SEL_15         0xa61f
+
+/* SP registers */
 #define GEN7_SP_READ_SEL                    0xae6d
+#define GEN7_SP_DBG_CNTL                    0xae71
 #define GEN7_SP_AHB_READ_APERTURE           0xc000
 
 /* VPC registers */
@@ -1036,6 +1048,8 @@
 #define GEN7_CX_DBGC_PERF_ATB_DRAIN_CMD                 0x1844a
 #define GEN7_CX_DBGC_ECO_CNTL                           0x18450
 #define GEN7_CX_DBGC_AHB_DBG_CNTL                       0x18451
+#define GEN7_CX_DBGC_TCM_DBG_ADDR                       0x18580
+#define GEN7_CX_DBGC_TCM_DBG_DATA                       0x18581
 
 /* GMU control registers */
 #define GEN7_GMU_CM3_ITCM_START			0x1b400
@@ -1051,6 +1065,7 @@
 #define GEN7_GMU_ICACHE_CONFIG			0x1f400
 #define GEN7_GMU_DCACHE_CONFIG			0x1f401
 #define GEN7_GMU_SYS_BUS_CONFIG			0x1f40f
+#define GEN7_GMU_CX_MRC_GBIF_QOS_CTRL		0x1f50b
 #define GEN7_GMU_CM3_SYSRESET			0x1f800
 #define GEN7_GMU_CM3_BOOT_CONFIG		0x1f801
 #define GEN7_GMU_CX_GMU_WFI_CONFIG		0x1f802
@@ -1163,6 +1178,7 @@
 #define GEN7_GMU_AHB_FENCE_STATUS_CLR		0x23b14
 #define GEN7_GMU_RBBM_INT_UNMASKED_STATUS	0x23b15
 #define GEN7_GMU_AO_SPARE_CNTL			0x23b16
+#define GEN7_GPU_GMU_AO_GPU_LPAC_BUSY_STATUS	0x23b30
 
 /* GMU RSC control registers */
 #define GEN7_GMU_RSCC_CONTROL_REQ		0x23b07
@@ -1194,6 +1210,12 @@
 #define GEN7_RSCC_TCS1_DRV0_STATUS			0x003ee
 #define GEN7_RSCC_TCS2_DRV0_STATUS			0x00496
 #define GEN7_RSCC_TCS3_DRV0_STATUS			0x0053e
+#define GEN7_RSCC_TCS4_DRV0_STATUS          0x005e6
+#define GEN7_RSCC_TCS5_DRV0_STATUS          0x0068e
+#define GEN7_RSCC_TCS6_DRV0_STATUS          0x00736
+#define GEN7_RSCC_TCS7_DRV0_STATUS          0x007de
+#define GEN7_RSCC_TCS8_DRV0_STATUS          0x00886
+#define GEN7_RSCC_TCS9_DRV0_STATUS          0x0092e
 
 /* Device-specific RSCC registers */
 #define GEN7_6_0_RSCC_SEQ_MEM_0_DRV0			0x00154
@@ -1201,6 +1223,12 @@
 #define GEN7_6_0_RSCC_TCS1_DRV0_STATUS			0x003f2
 #define GEN7_6_0_RSCC_TCS2_DRV0_STATUS			0x0049a
 #define GEN7_6_0_RSCC_TCS3_DRV0_STATUS			0x00542
+#define GEN7_6_0_RSCC_TCS4_DRV0_STATUS			0x005EA
+#define GEN7_6_0_RSCC_TCS5_DRV0_STATUS			0x00692
+#define GEN7_6_0_RSCC_TCS6_DRV0_STATUS			0x0073A
+#define GEN7_6_0_RSCC_TCS7_DRV0_STATUS			0x007E2
+#define GEN7_6_0_RSCC_TCS8_DRV0_STATUS			0x0088A
+#define GEN7_6_0_RSCC_TCS9_DRV0_STATUS			0x00932
 
 /* GPU PDC sequencer registers in AOSS.RPMh domain */
 #define GEN7_PDC_GPU_ENABLE_PDC				0x1140

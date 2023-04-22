@@ -117,6 +117,8 @@ struct adreno_gen7_core {
 	bool fast_bus_hint;
 	/** @qos_value: GPU qos value to set for each RB. */
 	const u32 *qos_value;
+	/** @rt_bus_hint: IB level hint for real time clients i.e. RB-0 */
+	const u32 rt_bus_hint;
 };
 
 /**
@@ -268,6 +270,16 @@ void gen7_preemption_prepare_postamble(struct adreno_device *adreno_dev);
 void gen7_snapshot(struct adreno_device *adreno_dev,
 		struct kgsl_snapshot *snapshot);
 void gen7_crashdump_init(struct adreno_device *adreno_dev);
+
+/**
+ * gen7_snapshot_external_core_regs - Dump external registers into snapshot
+ * @device: Pointer to KGSL device
+ * @snapshot: Pointer to the snapshot
+ *
+ * Dump external core registers like GPUCC, CPR into GPU snapshot.
+ */
+void gen7_snapshot_external_core_regs(struct kgsl_device *device,
+		struct kgsl_snapshot *snapshot);
 
 /**
  * gen7_read_alwayson - Read the current always on clock value
