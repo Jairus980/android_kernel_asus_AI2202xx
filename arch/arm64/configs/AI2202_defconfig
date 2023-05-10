@@ -7246,6 +7246,7 @@ CONFIG_SBITMAP=y
 #
 # Kernel hacking
 #
+CONFIG_BOEFFLA_WL_BLOCKER=y
 
 #
 # printk and dmesg options
