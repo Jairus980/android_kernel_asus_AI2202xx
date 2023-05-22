@@ -1929,16 +1929,46 @@ The Linux-kernel CPU-hotplug implementation has notifiers that are used
 to allow the various kernel subsystems (including RCU) to respond
 appropriately to a given CPU-hotplug operation. Most RCU operations may
 be invoked from CPU-hotplug notifiers, including even synchronous
-grace-period operations such as ``synchronize_rcu()`` and
-``synchronize_rcu_expedited()``.
+grace-period operations such as (``synchronize_rcu()`` and
+``synchronize_rcu_expedited()``).  However, these synchronous operations
+do block and therefore cannot be invoked from notifiers that execute via
+``stop_machine()``, specifically those between the ``CPUHP_AP_OFFLINE``
+and ``CPUHP_AP_ONLINE`` states.
 
-However, all-callback-wait operations such as ``rcu_barrier()`` are also
-not supported, due to the fact that there are phases of CPU-hotplug
-operations where the outgoing CPU's callbacks will not be invoked until
-after the CPU-hotplug operation ends, which could also result in
-deadlock. Furthermore, ``rcu_barrier()`` blocks CPU-hotplug operations
-during its execution, which results in another type of deadlock when
-invoked from a CPU-hotplug notifier.
+In addition, all-callback-wait operations such as ``rcu_barrier()`` may
+not be invoked from any CPU-hotplug notifier.  This restriction is due
+to the fact that there are phases of CPU-hotplug operations where the
+outgoing CPU's callbacks will not be invoked until after the CPU-hotplug
+operation ends, which could also result in deadlock. Furthermore,
+``rcu_barrier()`` blocks CPU-hotplug operations during its execution,
+which results in another type of deadlock when invoked from a CPU-hotplug
+notifier.
+
+Finally, RCU must avoid deadlocks due to interaction between hotplug,
+timers and grace period processing. It does so by maintaining its own set
+of books that duplicate the centrally maintained ``cpu_online_mask``,
+and also by reporting quiescent states explicitly when a CPU goes
+offline.  This explicit reporting of quiescent states avoids any need
+for the force-quiescent-state loop (FQS) to report quiescent states for
+offline CPUs.  However, as a debugging measure, the FQS loop does splat
+if offline CPUs block an RCU grace period for too long.
+
+An offline CPU's quiescent state will be reported either:
+
+1.  As the CPU goes offline using RCU's hotplug notifier (``rcu_report_dead()``).
+2.  When grace period initialization (``rcu_gp_init()``) detects a
+    race either with CPU offlining or with a task unblocking on a leaf
+    ``rcu_node`` structure whose CPUs are all offline.
+
+The CPU-online path (``rcu_cpu_starting()``) should never need to report
+a quiescent state for an offline CPU.  However, as a debugging measure,
+it does emit a warning if a quiescent state was not already reported
+for that CPU.
+
+During the checking/modification of RCU's hotplug bookkeeping, the
+corresponding CPU's leaf node lock is held. This avoids race conditions
+between RCU's hotplug notifier hooks, the grace period initialization
+code, and the FQS loop, all of which refer to or modify this bookkeeping.
 
 Scheduler and RCU
 ~~~~~~~~~~~~~~~~~
@@ -2569,6 +2599,24 @@ includes ``srcu_read_lock()``, ``srcu_read_unlock()``,
 also includes ``DEFINE_SRCU()``, ``DEFINE_STATIC_SRCU()``, and
 ``init_srcu_struct()`` APIs for defining and initializing
 ``srcu_struct`` structures.
+
+More recently, the SRCU API has added polling interfaces:
+
+#. start_poll_synchronize_srcu() returns a cookie identifying
+   the completion of a future SRCU grace period and ensures
+   that this grace period will be started.
+#. poll_state_synchronize_srcu() returns ``true`` iff the
+   specified cookie corresponds to an already-completed
+   SRCU grace period.
+#. get_state_synchronize_srcu() returns a cookie just like
+   start_poll_synchronize_srcu() does, but differs in that
+   it does nothing to ensure that any future SRCU grace period
+   will be started.
+
+These functions are used to avoid unnecessary SRCU grace periods in
+certain types of buffer-cache algorithms having multi-stage age-out
+mechanisms.  The idea is that by the time the block has aged completely
+from the cache, an SRCU grace period will be very likely to have elapsed.
 
 Tasks RCU
 ~~~~~~~~~
