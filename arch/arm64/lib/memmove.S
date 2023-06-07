@@ -64,7 +64,7 @@ SYM_FUNC_START_WEAK_PI(memmove)
 	sub	count, count, tmp2
 	/*
 	* process the aligned offset length to make the src aligned firstly.
-	* those extra instructions' cost is acceptable. It also make the
+	* those extra instructions cost is acceptable. It also make the
 	* coming accesses are based on aligned address.
 	*/
 	tbz	tmp2, #0, 1f
@@ -186,6 +186,4 @@ SYM_FUNC_START_WEAK_PI(memmove)
 	b.ne	.Ltail63
 	ret
 SYM_FUNC_END_PI(memmove)
-EXPORT_SYMBOL(memmove)
 SYM_FUNC_END_ALIAS(__memmove)
-EXPORT_SYMBOL(__memmove)

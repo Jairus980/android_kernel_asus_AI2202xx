@@ -190,7 +190,7 @@ SYM_FUNC_START_WEAK_PI(memset)
 	stp	A_l, A_l, [dst, #48]
 	add	dst, dst, #64
 	b.ge	1b
-	/* We've overrun a bit, so adjust dst downwards.*/
+	/* Weve overrun a bit, so adjust dst downwards.*/
 	add	dst, dst, tmp2
 2:
 	sub	count, count, zva_len_x
@@ -203,6 +203,4 @@ SYM_FUNC_START_WEAK_PI(memset)
 	b.ne	.Ltail_maybe_long
 	ret
 SYM_FUNC_END_PI(memset)
-EXPORT_SYMBOL(memset)
 SYM_FUNC_END_ALIAS(__memset)
-EXPORT_SYMBOL(__memset)
