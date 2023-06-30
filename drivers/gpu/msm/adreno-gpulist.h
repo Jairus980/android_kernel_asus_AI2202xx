@@ -1138,7 +1138,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a621 = {
 		.compatible = "qcom,adreno-gpu-a621",
 		.features = ADRENO_CONTENT_PROTECTION | ADRENO_IOCOHERENT |
 			ADRENO_APRIV | ADRENO_LSR | ADRENO_PREEMPTION |
-			ADRENO_IFPC,
+			ADRENO_IFPC | ADRENO_ACD | ADRENO_BCL,
 		.gpudev = &adreno_a6xx_hwsched_gpudev.base,
 		.perfcounters = &adreno_a6xx_hwsched_perfcounters,
 		.uche_gmem_alignment = 0,
@@ -1783,7 +1783,8 @@ static const struct adreno_a6xx_core adreno_gpu_core_gen6_3_26_0 = {
 	.base = {
 		DEFINE_ADRENO_REV(ADRENO_REV_GEN6_3_26_0, ANY_ID, ANY_ID, ANY_ID, ANY_ID),
 		.compatible = "qcom,adreno-gpu-gen6-3-26-0",
-		.features = ADRENO_CONTENT_PROTECTION | ADRENO_IOCOHERENT,
+		.features = ADRENO_CONTENT_PROTECTION | ADRENO_IOCOHERENT |
+			ADRENO_PREEMPTION,
 		.gpudev = &adreno_a6xx_gpudev,
 		.perfcounters = &adreno_a6xx_legacy_perfcounters,
 		.uche_gmem_alignment = SZ_1M,
@@ -2181,7 +2182,7 @@ static const struct adreno_gen7_core adreno_gpu_core_gen7_6_0 = {
 				ADRENO_IFPC | ADRENO_PREEMPTION | ADRENO_BCL |
 				ADRENO_ACD | ADRENO_LPAC | ADRENO_DMS,
 		.gpudev = &adreno_gen7_hwsched_gpudev.base,
-		.perfcounters = &adreno_gen7_6_0_perfcounters,
+		.perfcounters = &adreno_gen7_hwsched_perfcounters,
 		.uche_gmem_alignment = SZ_16M,
 		.gmem_size = 3 * SZ_1M,
 		.bus_width = 32,

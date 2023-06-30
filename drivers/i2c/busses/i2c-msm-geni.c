@@ -148,8 +148,10 @@ struct geni_i2c_dev {
 	dma_addr_t rx_ph;
 	struct msm_gpi_ctrl tx_ev;
 	struct msm_gpi_ctrl rx_ev;
-	struct scatterlist tx_sg[5]; /* lock, cfg0, go, TX, unlock */
-	struct scatterlist rx_sg;
+	struct scatterlist *tx_sg; /* lock, cfg0, go, TX, unlock */
+	struct scatterlist *rx_sg;
+	dma_addr_t tx_sg_dma;
+	dma_addr_t rx_sg_dma;
 	int cfg_sent;
 	struct dma_async_tx_descriptor *tx_desc;
 	struct dma_async_tx_descriptor *rx_desc;
@@ -168,6 +170,7 @@ struct geni_i2c_dev {
 	bool is_i2c_rtl_based; /* doing pending cancel only for rtl based SE's */
 	bool bus_recovery_enable; //To be enabled by client if needed
 	atomic_t is_xfer_in_progress;
+	bool gsi_err; /* For every gsi error performing gsi reset */
 	struct notifier_block panic_nb; //panic notfier call back
 	bool panic_dump_collect; //panic dumps collection with dt based flag
 	bool clocks_on; //To check whether clocks were on/off
@@ -726,11 +729,14 @@ static void gi2c_ev_cb(struct dma_chan *ch, struct msm_gpi_cb const *cb_str,
 	default:
 		break;
 	}
-	if (cb_str->cb_event != MSM_GPI_QUP_NOTIFY)
+	if (cb_str->cb_event != MSM_GPI_QUP_NOTIFY) {
 		I2C_LOG_ERR(gi2c->ipcl, true, gi2c->dev,
 				"GSI QN err:0x%x, status:0x%x, err:%d\n",
 				cb_str->error_log.error_code,
 				m_stat, cb_str->cb_event);
+		gi2c->gsi_err = true;
+		complete(&gi2c->xfer);
+	}
 }
 
 static void gi2c_gsi_cb_err(struct msm_gpi_dma_async_tx_cb_param *cb,
@@ -965,7 +971,7 @@ static struct dma_async_tx_descriptor *geni_i2c_prep_desc
 		geni_desc->callback_param = &gi2c->tx_cb;
 	} else {
 		geni_desc = dmaengine_prep_slave_sg(gi2c->rx_c,
-					&gi2c->rx_sg, 1, DMA_DEV_TO_MEM,
+					gi2c->rx_sg, 1, DMA_DEV_TO_MEM,
 					(DMA_PREP_INTERRUPT | DMA_CTRL_ACK));
 		if (!geni_desc) {
 			I2C_LOG_ERR(gi2c->ipcl, true, gi2c->dev,
@@ -1081,6 +1087,7 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 	struct msm_gpi_tre *lock_t = NULL;
 	struct msm_gpi_tre *cfg0_t = NULL;
 
+	gi2c->gsi_err = false;
 	if (!gi2c->req_chan) {
 		ret = geni_i2c_gsi_request_channel(gi2c);
 		if (ret)
@@ -1144,7 +1151,7 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 		if (msgs[i].flags & I2C_M_RD) {
 			I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
 				"msg[%d].len:%d R\n", i, gi2c->cur->len);
-			sg_init_table(&gi2c->rx_sg, 1);
+			sg_init_table(gi2c->rx_sg, 1);
 			ret = geni_se_iommu_map_buf(rx_dev, &gi2c->rx_ph,
 						dma_buf, msgs[i].len,
 						DMA_FROM_DEVICE);
@@ -1164,7 +1171,7 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 			}
 
 			rx_t = setup_rx_tre(gi2c, msgs, i, num);
-			sg_set_buf(&gi2c->rx_sg, rx_t,
+			sg_set_buf(gi2c->rx_sg, rx_t,
 						 sizeof(gi2c->rx_t));
 
 			gi2c->rx_desc =
@@ -1248,7 +1255,7 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 		}
 
 geni_i2c_err_prep_sg:
-		if (gi2c->err) {
+		if (gi2c->err || gi2c->gsi_err) {
 			if (!gi2c->is_le_vm) {
 				I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
 						"gpi_terminate\n");
@@ -1266,6 +1273,16 @@ geni_i2c_err_prep_sg:
 				}
 			}
 		}
+
+		if (gi2c->gsi_err) {
+			 /* if i2c error already present, no need to update error values */
+			if (!gi2c->err) {
+				gi2c->err = -EIO;
+				ret = gi2c->err;
+			}
+			gi2c->gsi_err = false;
+		}
+
 		if (gi2c->is_shared)
 			/* Resend cfg tre for every new message on shared se */
 			gi2c->cfg_sent = 0;
@@ -1896,6 +1913,20 @@ static int geni_i2c_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "could not set DMA mask\n");
 			return ret;
 		}
+	}
+
+	gi2c->tx_sg = dmam_alloc_coherent(gi2c->dev, 5*sizeof(struct scatterlist),
+					&gi2c->tx_sg_dma, GFP_KERNEL);
+	if (!gi2c->tx_sg) {
+		dev_err(&pdev->dev, "could not allocate for tx_sg\n");
+		return -ENOMEM;
+	}
+
+	gi2c->rx_sg = dmam_alloc_coherent(gi2c->dev, sizeof(struct scatterlist),
+					&gi2c->rx_sg_dma, GFP_KERNEL);
+	if (!gi2c->rx_sg) {
+		dev_err(&pdev->dev, "could not allocate for rx_sg\n");
+		return -ENOMEM;
 	}
 
 	gi2c->adap.algo = &geni_i2c_algo;
